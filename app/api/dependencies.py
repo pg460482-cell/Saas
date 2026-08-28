@@ -1,6 +1,6 @@
-from fastapi import Depends, HTTPException, status, Security
-from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
-from datetime import datetime, timezone
+from fastapi import Depends, HTTPException,status,Security
+from fastapi.security import OAuth2PasswordBearer,APIKEYHeader
+from datetime import datetime,timezone
 
 from app.db.redis_session import redis_client
 import jwt
@@ -10,13 +10,12 @@ from app.core.config import settings
 from sqlalchemy.orm import Session
 from app.models.blacklist import BlacklistedToken
 from app.models.api_key import APIKey
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
-api_key_header_scheme = APIKeyHeader(name="x-api-key", auto_error=False)
+oauth2_schema=OAuth2PasswordBearer(tokenurl="/api/users/login")
+api_key_header_scheme=APIKeyHeader(name="x-api-key", auto_error=False)
 
 
 def get_current_user(
-        token:str=Depends(oauth2_scheme),
+        token:str=Depends(oauth2_schema),
         db:Session=Depends(get_db)
 ):
     is_blacklisted=db.query(BlacklistedToken).filter(BlacklistedToken.token==token).first()
