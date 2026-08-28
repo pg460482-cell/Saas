@@ -41,8 +41,8 @@ def sanitize_input(text):
         return re.sub(r'[<>&\]','',text)
 
     return text
-@router.post("/signup",response_model=UserResponse,status_code=status.HTTP_201_CREATED)
 
+@router.post("/signup",response_model=UserResponse,status_code=status.HTTP_201_CREATED)
 def create_user(
     user_in:RegisterRequest,
     db:Session=Depends(get_db)
@@ -52,17 +52,15 @@ def create_user(
     if existing_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid credentails"
+            detail="Invalid credentials"
         )
-
     existing_username=db.query(User).filter(User.username==user_in.username).first()
-
     if existing_username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered plz try another username!"
+            detail="Username already taken! plz try another username!!"
         )
-   
+
     try:
         secure_password=hashed_password(user_in.password)
 
@@ -72,51 +70,41 @@ def create_user(
             email=user_in.email,
             hashed_password=secure_password
         )
-
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-        return new_user
-
+        return new user
     except Exception as e:
         db.rollback()
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error:{str(e)}"
         )
 
-@router.post("/login") 
+@router.post("/login")
 def login(
     user_in:OAuth2PasswordRequestForm=Depends(),
     db:Session=Depends(get_db)
+    
 ):
     login_input=user_in.username
-
-
     block_key=f"block_{login_input}"
-
-    if redis_client.get(block_key):
+    if redis.client.get(block_key):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is locked! try again after 15 minutes"
+            status_code=status.HTTP_404_FORBIDDEN,
+            detail="Account is Locked! try again after 15 minutes"
         )
     user=db.query(User).filter(
         or_(User.email==login_input,User.username==login_input)
     ).first()
-
     if not user or not verify_password(user_in.password,user.hashed_password):
         attempts_key=f"failed_login{login_input}"
         attempts=redis_client.incr(attempts_key)
 
         if attempts==1:
-            redis_client.expire(attempts_key, 900)
-
-
-        if attempts>=5:
-            redis_client.setex(block_key,900, "locked")
-
-
+            redis.client.expire(attempts_key,900)
+        if attempts>=1:
+            redis.client.setex(block_key,900,"locked")
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -127,12 +115,10 @@ def login(
             detail=f"invalid Credentials.You have {5-attempts} attempts left"
         )
     redis_client.delete(f"failed_attempts_{login_input}")
-
     try:
         access_token=create_access_token(data={"sub":user.email})
         refresh_token=create_refresh_token(data={"sub":user.email})
-
-        return {
+        return{
             "access_token":access_token,
             "refresh_token":refresh_token,
             "token_type":"bearer"
@@ -149,61 +135,93 @@ def get_current_user(
 ):
     return current_user
 
-@router.post("/me",response_model=UserResponse)
-
+@router.patch("/me",response_model=UserResponse)
 def update_profile(
+
     user_in:UserUpdate,
     current_user:User=Depends(get_current_user),
     db:Session=Depends(get_db)
-):
-    update_data=user_in.model_dump(exclude_unset=True)
 
+):
+    update_data=user_in.model_dump(exculade_unset=True)
+    if not update_data:
+        return current_user
+    if "username" in update_data:
+        existing_username=db.query.filter(
+            User.username==update.["username"],
+            User!=current_user.id
+        ).first()
+        if existing_username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken! plz try another username!"
+            )
+            
+
+    
+    for key,value in update_data.items():
+        setrettr(current_user,key,value)
+
+    if "email" in update_data:
+        existing_email=db.query.filter(
+            User.email==update.["email"],
+            User!=current.user.id
+        )
+        
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid condition"
     for key, value in update_data.items():
         setattr(current_user,key,value)
-
-
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
+    return current user
+            
 @router.delete("/me")
 def delete_user(
     current_user:User=Depends(get_current_user),
-    db:Session=Depends(get_db)
+    db:Session=depends(get_db)
 ):
     db.delete(current_user)
     db.commit()
-
-    return {"message":"user account successfully deleted"}
-
+    return {"message":"user account successful deleted"}
 @router.post("/me/password")
 def change_password(
     body:ChangePassword,
     current_user:User=Depends(get_current_user),
     db:Session=Depends(get_db)
 ):
-    is_valid_password=verify_password(body.old_password,current_user.hashed_password)
-
-    if not is_valid_password:
+    if not verify_password(
+        body.old_password,
+        current_user.hashed_password
+    ):
+        raise HTTPException(
+            status_code=status.HTT__400_BAD_REQUEST,
+            detail="Incorrect password"
+            
+        )
+    if verify_password(body.new_password,current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Incorrect password"
+            details="New password must be different from old password
         )
-
     try:
-        new_secure_password=hashed_password(body.new_password)
-        current_user.hashed_password=new_secure_password
-
-        db.add(current_user)
+        current_user.hashed_password=hashed_password(body.new_password)
         db.commit()
-        return {"message":"Password updated successfull"}
-
-    except Exception as e:
+        db.refresh(current_user)
+        return {
+            "messager":"password updated successfully"
+        }
+    except Exception:
         db.rollback()
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error:{str(e)}"
+            detail="Failed to updated password"
         )
+
+
 
 @router.post("/forgot_password")
 def forgot_password(
@@ -212,18 +230,14 @@ def forgot_password(
     db:Session=Depends(get_db)
 ):
     user=db.query(User).filter(User.email==body.email).first()
-
     if not user:
-        return {"message":"if this email is registered,you will receive a password reset token"}
+        retrun {"message":"if this email is registered,you will receive a passsword reset token"}
     reset_token=create_access_token(
         data={"sub":user.email,
-              "purpose":"reset_password"}
+             "purpose":"reset_password"}
     )
-
-    background_tasks.add_task(send_reset_link.email,reset_token)
-    return {"message":"If this email is registered,you will recieve a passeword reset token"}
-
-
+    background.tasks.add_tasks(send_reset_link.email,reset_token)
+    return {"message":"If this email is registered,you will recieve a password reset token"}
 
 @router.post("/reset-password")
 def reset_password(
@@ -231,11 +245,14 @@ def reset_password(
     db:Session=Depends(get_db)
 ):
     try:
-        payload=jwt.decode(
+        paylaod=jwt.decode(
             body.token,
-            settings.SECRET_KEY,
+            setting.SECRET_KEY,
             algorithms=[settings.ALGORITHM]
         )
+    
+
+
 
         if payload.get("purpose")!="reset_password":
             raise HTTPException(
