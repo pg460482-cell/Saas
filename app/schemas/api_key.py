@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 class APIKeyCreate(BaseModel):
@@ -7,12 +7,15 @@ class APIKeyCreate(BaseModel):
 class APIKeyResponse(BaseModel):
     id:int
     name:str
-    key:str
     is_active:bool
     created_at:datetime
     request_today:int
     daily_limit:int
 
 
-    class Config:
-        from_attributes=True
+    model_config = ConfigDict(from_attributes=True)
+
+
+class APIKeyCreatedResponse(APIKeyResponse):
+    
+    key: str

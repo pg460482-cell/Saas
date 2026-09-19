@@ -36,9 +36,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_apikeys_v2_id'), 'apikeys_v2', ['id'], unique=False)
     op.create_index(op.f('ix_apikeys_v2_key'), 'apikeys_v2', ['key'], unique=True)
-    op.drop_index(op.f('ix_blacklisted_token_id'), table_name='blacklisted_token')
-    op.drop_index(op.f('ix_blacklisted_token_token'), table_name='blacklisted_token')
-    op.drop_table('blacklisted_token')
+    op.execute('DROP TABLE IF EXISTS blacklisted_token CASCADE')
     # ### end Alembic commands ###
 
 

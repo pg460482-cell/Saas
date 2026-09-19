@@ -1,21 +1,23 @@
 import sys
 import os
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 from dotenv import load_dotenv
 
-# 1. Path setup aur .env load karna
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-load_dotenv()
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(PROJECT_ROOT))
+load_dotenv(PROJECT_ROOT / ".env")
 
-# 2. Base, Models aur Settings import karna
 from app.db.session import Base
 from app.models.user import User
 from app.models.api_key import APIKey
-
+from app.models.wallet import Wallet, Transaction
+from app.models.refresh_token import RefreshToken
+from app.models.blacklist import BlacklistedToken
 from app.core.config import settings
 
 # 3. Config setup

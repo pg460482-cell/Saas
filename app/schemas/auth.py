@@ -10,10 +10,9 @@ def verify_password_rules(v: str) -> str:
         raise ValueError("Password must contain at least one lowercase letter")
     if not re.search(r"\d", v):
         raise ValueError("Password must contain at least one number")
-    # Yahan special characters ko safe tarike se handle kiya gaya hai
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
-        raise ValueError("Password must contain at least one special character")
     
+    if not re.search(r"[^a-zA-Z0-9]", v):
+        raise ValueError("Password must contain at least one special character")
     return v
 
 strong_password = Annotated[
@@ -26,11 +25,11 @@ class RegisterRequest(BaseModel):
     full_name: str
     username: str
     email: EmailStr
-    password: strong_password  # Yahan humne aapka strong_password type lagaya
+    password: strong_password
 
 class LoginRequest(BaseModel):
     email:EmailStr
-    password:strong_password
+    password:str
 class TokenResponse(BaseModel):
     access_token:str
     refresh_token:str
@@ -38,6 +37,7 @@ class TokenResponse(BaseModel):
 class UserUpdate(BaseModel):
     full_name:Optional[str]=None
     username:Optional[str]=None
+    email:Optional[EmailStr]=None
 
 class ChangePassword(BaseModel):
     old_password:str
